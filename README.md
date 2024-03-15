@@ -9,7 +9,7 @@ Running `node adb-markers.js` will start a server on `localhost:2222`.
 In Firefox 125 or later configured for remote profiling a Firefox instance on Android:
 - on the host computer, in `about:config`, set the `devtools.performance.recording.markers.external-url` preference to `http://localhost:2222/markers`.
 - use the 'power' preset (or any configuration that uses the 'power' feature) when starting the profiler.
-- when capturing the profile, the Firefox Profiler will automatically fetch additional markers from `adb shell dumpsys batterystats` and add them to the profile.
+- when capturing the profile, the Firefox Profiler will automatically fetch additional markers from `adb shell dumpsys batterystats` and `adb logcat`, and add them to the profile.
 
 ## Adding markers to a profile from an USB power meter
 
@@ -30,3 +30,4 @@ The start timestamp should be `profile.meta.startTime + profile.meta.profilingSt
   - `GET /dump-verbose`: dump the (mostly) human readable output of `adb shell dumpsys batterystats`.
   - `GET /events`: dump the batterystats events in plain text.
   - `GET /events.json`: dump the batterystats events as JSON objects.
+  - `GET /logcat.json`: dump the last 1000 logcat messages as JSON objects.

@@ -30,7 +30,7 @@ function sendError(res, error) {
 
 function execAdb(cmd) {
   return new Promise((resolve, reject) => {
-    exec("adb " + cmd, {maxBuffer: 1024 * 1024 * 2},
+    exec("adb " + cmd, {maxBuffer: 1024 * 1024 * 50},
          (error, stdout, stderr) => {
            if (error) {
              console.log(`error: ${error.message}`);
@@ -45,6 +45,35 @@ function execAdb(cmd) {
            resolve(stdout);
          })
   });
+}
+
+async function getLogcatEvents(startTime) {
+  let result = [];
+  let stdout = await execAdb(`logcat -t ${startTime || 1000} --format=epoch,UTC,usec,printable,long`);
+  let sections = stdout.split("--------- beginning of ");
+  for (let section of sections) {
+    let lineBreakIndex = section.indexOf("\n");
+    if (lineBreakIndex == -1) {
+      continue;
+    }
+    let sectionName = section.slice(0, lineBreakIndex);
+    let messages = section.slice(lineBreakIndex + 1).split("\n\n");
+    for (let messageText of messages) {
+      if (!messageText) {
+        continue;
+      }
+      let match = messageText.match(/\[\s+([0-9.]+)\s+([0-9]+):\s*([0-9]+) ([A-Z])\/(.*[^ ]) +\]\n(.*)/);
+      if (!match) {
+        console.log("failed to parse:", messageText);
+        continue;
+      }
+      let [, time, pid, tid, level, tag, msg] = match;
+      result.push({section: sectionName, time: parseFloat(time),
+                   pid: parseInt(pid), tid: parseInt(tid), level, tag, msg});
+    }
+  }
+
+  return result;
 }
 
 async function getBatteryStatsEvents() {
@@ -242,7 +271,7 @@ function convertCheckinNames(events, stringTable) {
     }
 
     let data = {raw: event};
-    let parsed = name.match(/^E([a-z]{2})=([0-9]+)/);
+    let parsed = name.match(/^E([a-z]{2})=([0-9]+)$/);
     if (parsed) {
       let {uid, str} = stringTable[parseInt(parsed[2])];
       let eventNameIndex = shortEventnames.indexOf(parsed[1]);
@@ -310,7 +339,7 @@ async function markersFromAdb(startTime = 0) {
   let {events, stringTable} = await getBatteryStatsEvents();
 
   let categories = [
-    {name: "Android", color: "yellow", subcategories: ["Other"]}
+    {name: "Android - BatteryStats", color: "yellow", subcategories: ["Other"]}
   ];
 
   let markers = convertCheckinNames(events, stringTable);
@@ -330,7 +359,7 @@ async function markersFromAdb(startTime = 0) {
     }
 
     let data = m[schema.data];
-    data.type = "Adb";
+    data.type = "abs";
     
     let name = m[schema.name];
     if (name.includes("=")) {
@@ -343,32 +372,88 @@ async function markersFromAdb(startTime = 0) {
     }
   });
 
-  let markerSchema = [{
-    name: "Adb",
-    tooltipLabel:"{marker.name} {marker.data.name}",
-    tableLabel:"{marker.data.name}",
-    chartLabel:"{marker.data.name}",
-    display: ["marker-chart", "marker-table"],
-    data: [
-      {
-        key: "name",
-        label: "Name event",
-        format: "string",
-        searchable: true
-      },
-      {
-        key: "uid",
-        label: "User id",
-        format: "string",
-        searchable: true
-      },
-      {
-        key: "raw",
-        label: "Checkin event",
-        format: "string"
-      },
-    ],
-  }];
+  let markerSchema = [
+    {
+      name: "abs",
+      tooltipLabel:"{marker.name} {marker.data.name}",
+      tableLabel:"{marker.data.name}",
+      chartLabel:"{marker.data.name}",
+      display: ["marker-chart", "marker-table"],
+      data: [
+        {
+          key: "name",
+          label: "Name event",
+          format: "string",
+          searchable: true
+        },
+        {
+          key: "uid",
+          label: "User id",
+          format: "string",
+          searchable: true
+        },
+        {
+          key: "raw",
+          label: "Checkin event",
+          format: "string"
+        },
+      ],
+    },
+    {
+      name: "alc",
+      tooltipLabel:"{marker.name} {marker.data.msg}",
+      tableLabel:"[{marker.data.section}] {marker.data.level} — {marker.data.msg}",
+      display: ["marker-chart", "marker-table"],
+      data: [
+        {
+          key: "msg",
+          label: "Message",
+          format: "string",
+          searchable: true
+        },
+        {
+          key: "level",
+          label: "Log level",
+          format: "string",
+          searchable: true
+        },
+        {
+          key: "pid",
+          label: "Process Id",
+          format: "number",
+          searchable: true
+        },
+        {
+          key: "tid",
+          label: "Thread Id",
+          format: "number",
+          searchable: true
+        },
+        {
+          key: "section",
+          label: "Section",
+          format: "string"
+        },
+      ],
+    }
+  ];
+
+  categories.push({name: "Android - logcat", color: "yellow", subcategories: ["Other"]});
+  const catId = 1;
+  let messages = await getLogcatEvents(startTime);
+  const levelMap = new Map([
+    ["V", "Verbose"],
+    ["D", "Debug"],
+    ["I", "Info"],
+    ["w", "Warning"],
+    ["E", "Error"],
+    ["F", "Fatal"],
+  ]);
+  for (let {section, time, pid, tid, level, tag, msg} of messages) {
+    level = levelMap.get(level) || level;
+    markers.push([tag, time * 1000 - startTime, null, phase_instant, catId,
+                  {type: "alc", msg, level, pid, tid, section}]);
+  }
 
   return {categories, markers: {data: markers, schema}, markerSchema};
 }
@@ -406,10 +491,16 @@ const app = async (req, res) => {
   if (req.url == "/events.json") {
     let {events, stringTable} = await getBatteryStatsEvents();
     sendPlainText(res,
-                  convertCheckinNames(events, stringTable).map(e => JSON.stringify(e)).join("\n"));
+                  convertCheckinNames(events, stringTable).map(JSON.stringify).join("\n"));
     return;
   }
   
+  if (req.url == "/logcat.json") {
+    let data = await getLogcatEvents();
+    sendPlainText(res, data.map(JSON.stringify).join("\n"));
+    return;
+  }
+
   if (req.url.startsWith("/markers")) {
     const query = url.parse(req.url, true).query;
     if (!query.start && !query.end) {
