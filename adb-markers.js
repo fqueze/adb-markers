@@ -445,7 +445,7 @@ async function markersFromAdb(startTime = 0) {
     ["V", "Verbose"],
     ["D", "Debug"],
     ["I", "Info"],
-    ["w", "Warning"],
+    ["W", "Warning"],
     ["E", "Error"],
     ["F", "Fatal"],
   ]);
