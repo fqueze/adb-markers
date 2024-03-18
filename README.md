@@ -13,7 +13,7 @@ In Firefox 125 or later configured for remote profiling a Firefox instance on An
 
 ## Adding markers to a profile from an USB power meter
 
-- ensure USB power profiling works, and `http://localhost:2121/profile` returns valid profiles.
+- ensure [USB power profiling](https://github.com/fqueze/usb-power-profiling) works, and `http://localhost:2121/profile` returns valid profiles.
 - [Load](https://profiler.firefox.com/from-url/http%3A%2F%2Flocalhost%3A2222%2Fprofile/calltree/?v=10) `http://localhost:2222/profile` in the [Firefox Profiler](https://profiler.firefox.com). 
 
 ## HTTP API
