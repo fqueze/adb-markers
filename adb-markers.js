@@ -69,7 +69,7 @@ async function getLogcatEvents(startTime) {
       }
       let [, time, pid, tid, level, tag, msg] = match;
       result.push({section: sectionName, time: parseFloat(time),
-                   pid: parseInt(pid), tid: parseInt(tid), level, tag, msg});
+                   pid, tid: parseInt(tid), level, tag, msg});
     }
   }
 
@@ -419,14 +419,14 @@ async function markersFromAdb(startTime = 0) {
         },
         {
           key: "pid",
-          label: "Process Id",
-          format: "number",
+          label: "Process",
+          format: "pid",
           searchable: true
         },
         {
           key: "tid",
-          label: "Thread Id",
-          format: "number",
+          label: "Thread",
+          format: "tid",
           searchable: true
         },
         {
