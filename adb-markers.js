@@ -440,7 +440,7 @@ async function markersFromAdb(startTime = 0) {
 
   categories.push({name: "Android - logcat", color: "yellow", subcategories: ["Other"]});
   const catId = 1;
-  let messages = await getLogcatEvents(startTime);
+  let messages = await getLogcatEvents(startTime / 1000);
   const levelMap = new Map([
     ["V", "Verbose"],
     ["D", "Debug"],
