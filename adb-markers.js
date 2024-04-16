@@ -337,7 +337,6 @@ function mergeIntervalMarkers(markers) {
 
 async function markersFromAdb(startTime = 0) {
   let {events, stringTable} = await getBatteryStatsEvents();
-
   let categories = [
     {name: "Android - BatteryStats", color: "yellow", subcategories: ["Other"]}
   ];
@@ -458,6 +457,20 @@ async function markersFromAdb(startTime = 0) {
   return {categories, markers: {data: markers, schema}, markerSchema};
 }
 
+function resetTime() {
+  let now = Date.now();
+  while (now % 1000) {
+    now = Date.now();
+  }
+  const date = new Date(now);
+  function twoDigits(s) { return ("0"+s).slice(-2); }
+
+  let str = twoDigits(date.getMonth() + 1) + twoDigits(date.getDate()) +
+      twoDigits(date.getHours()) + twoDigits(date.getMinutes()) +
+      twoDigits(date.getYear()) + "." + twoDigits(date.getSeconds());
+  return execAdb("shell su -c date " + str);
+}
+
 const app = async (req, res) => {
   console.log(new Date(), req.url);
 
@@ -465,7 +478,8 @@ const app = async (req, res) => {
     sendPlainText(res,
                   [await execAdb("shell dumpsys battery unplug"),
                    await execAdb("shell dumpsys batterystats --reset"),
-                   await execAdb("shell dumpsys batterystats --enable full-history")].join("\n"));
+                   await execAdb("shell dumpsys batterystats --enable full-history"),
+                   await resetTime()].join("\n"));
     return;
   }
 
