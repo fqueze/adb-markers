@@ -580,7 +580,8 @@ const app = async (req, res) => {
   }
 };
 
+const port = process.env.PORT || 2222;
 const server = http.createServer(app)
-server.listen(2222, "0.0.0.0", () => {
-  console.log("Ensure devtools.performance.recording.markers.external-url is set to http://localhost:2222/markers in 'about:config'.");
+server.listen(port, "0.0.0.0", () => {
+  console.log(`Ensure devtools.performance.recording.markers.external-url is set to http://localhost:${port}/markers in 'about:config'.`);
 });
